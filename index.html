@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dex Signer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0d0d0f;--surface:#141417;--surface2:#1a1a1e;
+      --border:#222228;--accent:#e8ff47;--accent2:#47b8ff;
+      --text:#f0f0f0;--muted:#666;--error:#ff4757;--success:#2ecc71;
+    }
+    body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 20px 80px;position:relative;overflow-x:hidden}
+    body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(232,255,71,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(232,255,71,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+    .container{width:100%;max-width:580px;position:relative;z-index:1}
+
+    header{margin-bottom:40px}
+    .logo-row{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+    .logo-icon{width:34px;height:34px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center}
+    .logo-icon svg{width:18px;height:18px}
+    h1{font-size:26px;font-weight:800;letter-spacing:-.5px}
+    .tagline{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;display:flex;flex-direction:column;gap:20px}
+
+    /* Tabs */
+    .tabs{display:flex;gap:2px;background:var(--bg);border-radius:8px;padding:3px}
+    .tab{flex:1;padding:8px;text-align:center;border-radius:6px;cursor:pointer;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);transition:all .15s;border:none;background:transparent}
+    .tab.active{background:var(--surface2);color:var(--text)}
+
+    /* Sections */
+    .section{display:none}
+    .section.active{display:flex;flex-direction:column;gap:20px}
+
+    .field{display:flex;flex-direction:column;gap:8px}
+    label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-family:'Space Mono',monospace}
+
+    .drop-zone{border:1.5px dashed var(--border);border-radius:10px;padding:22px 20px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;transition:border-color .15s,background .15s;position:relative;text-align:center}
+    .drop-zone:hover,.drop-zone.dragover{border-color:var(--accent);background:rgba(232,255,71,.04)}
+    .drop-zone.has-file{border-color:var(--accent2);border-style:solid}
+    .drop-zone input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+    .drop-icon{font-size:22px;line-height:1}
+    .drop-label{font-size:12px;color:var(--muted);font-family:'Space Mono',monospace}
+    .drop-label strong{color:var(--text)}
+    .file-name{font-size:11px;font-family:'Space Mono',monospace;color:var(--accent2);word-break:break-all;display:none}
+    .drop-zone.has-file .file-name{display:block}
+    .drop-zone.has-file .drop-icon,.drop-zone.has-file .drop-label{display:none}
+    .clear-file{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);cursor:pointer;text-align:center;display:none;padding:3px}
+    .drop-zone.has-file~.clear-file{display:block}
+    .clear-file:hover{color:var(--error)}
+
+    input[type="text"],input[type="password"]{background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-family:'Space Mono',monospace;font-size:13px;outline:none;transition:border-color .15s;width:100%}
+    input:focus{border-color:var(--accent)}
+    input::placeholder{color:#444}
+
+    .divider{height:1px;background:var(--border)}
+    .hint{font-family:'Space Mono',monospace;font-size:10px;color:#444;margin-top:-4px}
+
+    /* Saved certs */
+    .saved-certs{display:flex;flex-direction:column;gap:8px}
+    .cert-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:border-color .15s}
+    .cert-item:hover{border-color:var(--accent2)}
+    .cert-item.selected{border-color:var(--accent);background:rgba(232,255,71,.04)}
+    .cert-info{flex:1;min-width:0}
+    .cert-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cert-meta{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);margin-top:2px}
+    .cert-delete{background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;font-size:14px;line-height:1;flex-shrink:0}
+    .cert-delete:hover{color:var(--error)}
+    .no-certs{font-family:'Space Mono',monospace;font-size:11px;color:#444;text-align:center;padding:16px}
+
+    /* Save cert form */
+    .save-cert-toggle{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent2);cursor:pointer;text-align:center;padding:4px}
+    .save-cert-toggle:hover{opacity:.8}
+    .save-cert-form{display:none;flex-direction:column;gap:10px;padding:14px;background:var(--bg);border:1px solid var(--border);border-radius:8px}
+    .save-cert-form.open{display:flex}
+    .row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}
+
+    .btn{border:none;border-radius:8px;padding:10px 16px;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:opacity .15s,transform .1s}
+    .btn:active{transform:scale(.97)}
+    .btn-accent{background:var(--accent);color:#0d0d0f}
+    .btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+    .btn-ghost:hover{border-color:var(--muted)}
+
+    .btn-sign{background:var(--accent);color:#0d0d0f;border:none;border-radius:10px;padding:14px 24px;font-family:'Syne',sans-serif;font-weight:800;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:opacity .15s,transform .1s;width:100%}
+    .btn-sign:hover{opacity:.9}
+    .btn-sign:active{transform:scale(.98)}
+    .btn-sign:disabled{opacity:.4;cursor:not-allowed}
+
+    .progress-wrap{display:none;flex-direction:column;gap:8px}
+    .progress-wrap.visible{display:flex}
+    .progress-bar-bg{height:3px;background:var(--border);border-radius:99px;overflow:hidden}
+    .progress-bar-fill{height:100%;background:var(--accent);border-radius:99px;animation:indeterminate 1.4s infinite linear}
+    @keyframes indeterminate{0%{transform:translateX(-100%);width:60%}100%{transform:translateX(200%);width:60%}}
+    .progress-label{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);text-align:center}
+
+    .status{display:none;padding:11px 14px;border-radius:8px;font-family:'Space Mono',monospace;font-size:12px;line-height:1.5}
+    .status.error{display:block;background:rgba(255,71,87,.1);border:1px solid rgba(255,71,87,.3);color:var(--error)}
+    .status.success{display:block;background:rgba(46,204,113,.1);border:1px solid rgba(46,204,113,.3);color:var(--success)}
+
+    footer{margin-top:32px;font-family:'Space Mono',monospace;font-size:11px;color:#333;text-align:center}
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo-row">
+      <div class="logo-icon">
+        <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10 2L13 7H17L14 11L15.5 16L10 13L4.5 16L6 11L3 7H7L10 2Z" fill="#0d0d0f"/>
+        </svg>
+      </div>
+      <h1>Dex Signer</h1>
+    </div>
+    <p class="tagline">drop · sign · done</p>
+  </header>
+
+  <div class="card">
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('sign')">Sign IPA</button>
+      <button class="tab" onclick="switchTab('certs')">Saved Certs</button>
+    </div>
+
+    <!-- SIGN TAB -->
+    <div class="section active" id="tab-sign">
+
+      <!-- IPA / ZIP -->
+      <div class="field">
+        <label>App File</label>
+        <div class="drop-zone" id="ipa-zone">
+          <input type="file" id="ipa-input" accept=".ipa,.zip"/>
+          <div class="drop-icon">📦</div>
+          <div class="drop-label">Drop <strong>.ipa</strong> or <strong>.zip</strong> here or tap</div>
+          <div class="file-name" id="ipa-name"></div>
+        </div>
+        <span class="clear-file" onclick="clearFile('ipa')">✕ remove</span>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Cert source picker -->
+      <div class="field">
+        <label>Certificate</label>
+        <div class="tabs" style="margin-bottom:10px">
+          <button class="tab active" id="cert-tab-upload" onclick="switchCertTab('upload')">Upload P12</button>
+          <button class="tab" id="cert-tab-saved" onclick="switchCertTab('saved')">Use Saved</button>
+        </div>
+
+        <!-- Upload -->
+        <div id="cert-section-upload">
+          <div class="drop-zone" id="p12-zone">
+            <input type="file" id="p12-input" accept=".p12,.pfx"/>
+            <div class="drop-icon">🔑</div>
+            <div class="drop-label">Drop <strong>.p12</strong> or <strong>.pfx</strong> here or tap</div>
+            <div class="file-name" id="p12-name"></div>
+          </div>
+          <span class="clear-file" onclick="clearFile('p12')" style="margin-top:4px;display:none" id="p12-clear-btn">✕ remove</span>
+
+          <div class="field" style="margin-top:12px">
+            <label>P12 Password <span style="color:#444;font-weight:400">(if any)</span></label>
+            <input type="password" id="p12-password" placeholder="leave blank if none" autocomplete="off"/>
+          </div>
+
+          <div class="save-cert-toggle" onclick="toggleSaveCert()">+ save this cert for later</div>
+          <div class="save-cert-form" id="save-cert-form">
+            <label>Give this cert a name</label>
+            <div class="row">
+              <input type="text" id="save-cert-name" placeholder="e.g. My Dev Cert"/>
+              <button class="btn btn-accent" onclick="saveCert()">Save</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Saved -->
+        <div id="cert-section-saved" style="display:none">
+          <div class="saved-certs" id="saved-certs-sign-list"></div>
+          <p style="font-family:'Space Mono',monospace;font-size:10px;color:#444;margin-top:8px;text-align:center">tap a cert to select it</p>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Output name -->
+      <div class="field">
+        <label>Output filename</label>
+        <input type="text" id="output-name" placeholder="signed"/>
+        <span class="hint">result will be &lt;name&gt;.ipa</span>
+      </div>
+
+      <!-- Progress -->
+      <div class="progress-wrap" id="progress">
+        <div class="progress-bar-bg"><div class="progress-bar-fill"></div></div>
+        <div class="progress-label" id="progress-label">Uploading…</div>
+      </div>
+
+      <!-- Status -->
+      <div class="status" id="status"></div>
+
+      <button class="btn-sign" id="sign-btn" onclick="doSign()">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M4 6l4 4 4-4M2 13h12" stroke="#0d0d0f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Sign IPA
+      </button>
+    </div>
+
+    <!-- CERTS TAB -->
+    <div class="section" id="tab-certs">
+      <div class="field">
+        <label>Your Saved Certificates</label>
+        <div class="saved-certs" id="saved-certs-manage-list"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Add new cert -->
+      <div class="field">
+        <label>Add New Certificate</label>
+        <div class="drop-zone" id="new-p12-zone">
+          <input type="file" id="new-p12-input" accept=".p12,.pfx"/>
+          <div class="drop-icon">🔑</div>
+          <div class="drop-label">Drop <strong>.p12</strong> or <strong>.pfx</strong></div>
+          <div class="file-name" id="new-p12-name"></div>
+        </div>
+        <span class="clear-file" onclick="clearFile('new-p12')" id="new-p12-clear">✕ remove</span>
+      </div>
+      <div class="field">
+        <label>Password <span style="color:#444;font-weight:400">(if any)</span></label>
+        <input type="password" id="new-p12-password" placeholder="leave blank if none" autocomplete="off"/>
+      </div>
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="new-cert-name" placeholder="e.g. Enterprise Cert"/>
+      </div>
+      <button class="btn btn-accent" style="width:100%;padding:12px" onclick="addCertFromManage()">Save Certificate</button>
+      <div class="status" id="manage-status"></div>
+    </div>
+  </div>
+
+  <footer>files deleted within 5 min · certs stored in your browser only</footer>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────
+const files = { ipa: null, p12: null, 'new-p12': null };
+let selectedSavedCert = null; // { name, p12base64, password }
+let certSource = 'upload'; // 'upload' | 'saved'
+
+// ── Tabs ───────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tabs:first-child .tab').forEach((t,i) => {
+    t.classList.toggle('active', ['sign','certs'][i] === name);
+  });
+  document.getElementById('tab-sign').classList.toggle('active', name === 'sign');
+  document.getElementById('tab-certs').classList.toggle('active', name === 'certs');
+  if (name === 'certs') renderManageList();
+}
+
+function switchCertTab(src) {
+  certSource = src;
+  selectedSavedCert = null;
+  document.getElementById('cert-tab-upload').classList.toggle('active', src === 'upload');
+  document.getElementById('cert-tab-saved').classList.toggle('active', src === 'saved');
+  document.getElementById('cert-section-upload').style.display = src === 'upload' ? '' : 'none';
+  document.getElementById('cert-section-saved').style.display = src === 'saved' ? '' : 'none';
+  if (src === 'saved') renderSignList();
+}
+
+// ── Saved certs (localStorage) ─────────────────────────────────────────
+function getCerts() {
+  try { return JSON.parse(localStorage.getItem('dex-certs') || '[]'); } catch { return []; }
+}
+function saveCerts(arr) {
+  localStorage.setItem('dex-certs', JSON.stringify(arr));
+}
+
+function saveCert() {
+  const name = document.getElementById('save-cert-name').value.trim();
+  if (!name) return alert('Enter a name for this cert.');
+  if (!files.p12) return alert('Upload a P12 file first.');
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const b64 = reader.result.split(',')[1];
+    const password = document.getElementById('p12-password').value;
+    const certs = getCerts();
+    certs.push({ id: Date.now(), name, p12base64: b64, password });
+    saveCerts(certs);
+    document.getElementById('save-cert-form').classList.remove('open');
+    document.getElementById('save-cert-name').value = '';
+    setStatus('success', `✓ "${name}" saved.`);
+  };
+  reader.readAsDataURL(files.p12);
+}
+
+function addCertFromManage() {
+  const name = document.getElementById('new-cert-name').value.trim();
+  if (!name) return setManageStatus('error', 'Enter a name.');
+  if (!files['new-p12']) return setManageStatus('error', 'Upload a P12 file.');
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const b64 = reader.result.split(',')[1];
+    const password = document.getElementById('new-p12-password').value;
+    const certs = getCerts();
+    certs.push({ id: Date.now(), name, p12base64: b64, password });
+    saveCerts(certs);
+    clearFile('new-p12');
+    document.getElementById('new-p12-password').value = '';
+    document.getElementById('new-cert-name').value = '';
+    setManageStatus('success', `✓ "${name}" saved.`);
+    renderManageList();
+  };
+  reader.readAsDataURL(files['new-p12']);
+}
+
+function deleteCert(id) {
+  const certs = getCerts().filter(c => c.id !== id);
+  saveCerts(certs);
+  renderManageList();
+  renderSignList();
+  if (selectedSavedCert?.id === id) selectedSavedCert = null;
+}
+
+function renderSignList() {
+  const certs = getCerts();
+  const el = document.getElementById('saved-certs-sign-list');
+  if (!certs.length) {
+    el.innerHTML = '<div class="no-certs">No saved certs yet. Upload one first.</div>';
+    return;
+  }
+  el.innerHTML = certs.map(c => `
+    <div class="cert-item ${selectedSavedCert?.id === c.id ? 'selected' : ''}" onclick="selectCert(${c.id})">
+      <div class="cert-info">
+        <div class="cert-name">${esc(c.name)}</div>
+        <div class="cert-meta">${c.password ? 'password protected' : 'no password'}</div>
+      </div>
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;opacity:${selectedSavedCert?.id === c.id ? 1 : 0}">
+        <path d="M2 7l4 4 6-7" stroke="#e8ff47" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+  `).join('');
+}
+
+function renderManageList() {
+  const certs = getCerts();
+  const el = document.getElementById('saved-certs-manage-list');
+  if (!certs.length) {
+    el.innerHTML = '<div class="no-certs">No saved certs yet.</div>';
+    return;
+  }
+  el.innerHTML = certs.map(c => `
+    <div class="cert-item">
+      <div class="cert-info">
+        <div class="cert-name">${esc(c.name)}</div>
+        <div class="cert-meta">${c.password ? 'password protected' : 'no password'}</div>
+      </div>
+      <button class="cert-delete" onclick="deleteCert(${c.id})" title="Delete">✕</button>
+    </div>
+  `).join('');
+}
+
+function selectCert(id) {
+  const certs = getCerts();
+  const cert = certs.find(c => c.id === id);
+  selectedSavedCert = cert || null;
+  renderSignList();
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── File zones ────────────────────────────────────────────────────────
+function setupZone(id, fieldName) {
+  const zone = document.getElementById(id + '-zone');
+  const input = document.getElementById(id + '-input');
+  const nameEl = document.getElementById(id + '-name');
+  if (!zone) return;
+
+  input.addEventListener('change', () => {
+    if (input.files[0]) setFile(fieldName, input.files[0], nameEl, zone);
+  });
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('dragover');
+    const f = e.dataTransfer.files[0];
+    if (f) setFile(fieldName, f, nameEl, zone);
+  });
+}
+
+function setFile(fieldName, file, nameEl, zone) {
+  files[fieldName] = file;
+  nameEl.textContent = file.name;
+  zone.classList.add('has-file');
+  // Show clear button for p12
+  const clearBtn = document.getElementById('p12-clear-btn');
+  if (clearBtn && fieldName === 'p12') clearBtn.style.display = 'block';
+  setStatus('','');
+}
+
+function clearFile(fieldName) {
+  files[fieldName] = null;
+  const zone = document.getElementById(fieldName + '-zone');
+  const nameEl = document.getElementById(fieldName + '-name');
+  const input = document.getElementById(fieldName + '-input');
+  if (zone) { zone.classList.remove('has-file'); }
+  if (nameEl) nameEl.textContent = '';
+  if (input) input.value = '';
+  if (fieldName === 'p12') {
+    const clearBtn = document.getElementById('p12-clear-btn');
+    if (clearBtn) clearBtn.style.display = 'none';
+  }
+}
+
+// ── Save cert toggle ───────────────────────────────────────────────────
+function toggleSaveCert() {
+  document.getElementById('save-cert-form').classList.toggle('open');
+}
+
+// ── Status ────────────────────────────────────────────────────────────
+function setStatus(type, msg) {
+  const el = document.getElementById('status');
+  el.className = 'status' + (type ? ' ' + type : '');
+  el.textContent = msg;
+}
+function setManageStatus(type, msg) {
+  const el = document.getElementById('manage-status');
+  el.className = 'status' + (type ? ' ' + type : '');
+  el.textContent = msg;
+}
+function setProgress(visible, label) {
+  document.getElementById('progress').classList.toggle('visible', visible);
+  document.getElementById('progress-label').textContent = label || '';
+}
+
+// ── Sign ──────────────────────────────────────────────────────────────
+async function doSign() {
+  setStatus('', '');
+  if (!files.ipa) return setStatus('error', 'No IPA or ZIP file selected.');
+
+  if (certSource === 'saved') {
+    if (!selectedSavedCert) return setStatus('error', 'Select a saved certificate.');
+  } else {
+    if (!files.p12) return setStatus('error', 'No P12 certificate selected.');
+  }
+
+  const btn = document.getElementById('sign-btn');
+  btn.disabled = true;
+  setProgress(true, 'Uploading…');
+
+  const fd = new FormData();
+  fd.append('ipa', files.ipa);
+  fd.append('outputName', document.getElementById('output-name').value.trim() || 'signed');
+
+  if (certSource === 'upload') {
+    fd.append('p12', files.p12);
+    fd.append('p12password', document.getElementById('p12-password').value);
+  } else {
+    fd.append('p12base64', selectedSavedCert.p12base64);
+    fd.append('p12password', selectedSavedCert.password || '');
+  }
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/sign');
+  xhr.responseType = 'blob';
+
+  xhr.upload.onprogress = e => {
+    if (e.lengthComputable) {
+      setProgress(true, `Uploading… ${Math.round(e.loaded/e.total*100)}%`);
+    }
+  };
+
+  xhr.onload = () => {
+    setProgress(false);
+    btn.disabled = false;
+    if (xhr.status === 200) {
+      const outName = document.getElementById('output-name').value.trim() || 'signed';
+      const url = URL.createObjectURL(xhr.response);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${outName}.ipa`; a.click();
+      URL.revokeObjectURL(url);
+      setStatus('success', `✓ Signed — ${outName}.ipa downloaded.`);
+    } else {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try { setStatus('error', JSON.parse(reader.result).error || 'Signing failed.'); }
+        catch { setStatus('error', 'Signing failed.'); }
+      };
+      reader.readAsText(xhr.response);
+    }
+  };
+
+  xhr.onerror = () => { setProgress(false); btn.disabled = false; setStatus('error', 'Network error.'); };
+  setProgress(true, 'Signing…');
+  xhr.send(fd);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────
+setupZone('ipa', 'ipa');
+setupZone('p12', 'p12');
+setupZone('new-p12', 'new-p12');
+renderSignList();
+</script>
+</body>
+</html>
