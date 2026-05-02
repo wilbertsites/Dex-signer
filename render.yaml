@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: dex-signer
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    envVars:
+      - key: PORT
+        value: 3000
+    healthCheckPath: /health
