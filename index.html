@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dex Signer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d0f;
+      --surface: #141417;
+      --border: #222228;
+      --accent: #e8ff47;
+      --accent2: #47b8ff;
+      --text: #f0f0f0;
+      --muted: #666;
+      --error: #ff4757;
+      --success: #2ecc71;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 20px 80px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Background grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(232,255,71,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(232,255,71,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 560px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    header {
+      margin-bottom: 48px;
+    }
+
+    .logo-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-icon svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--text);
+    }
+
+    .tagline {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* Card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Field groups */
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+    }
+
+    .drop-zone {
+      border: 1.5px dashed var(--border);
+      border-radius: 10px;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      position: relative;
+      text-align: center;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(232,255,71,0.04);
+    }
+
+    .drop-zone.has-file {
+      border-color: var(--accent2);
+      border-style: solid;
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-icon {
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .drop-label {
+      font-size: 13px;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+    }
+
+    .drop-label strong {
+      color: var(--text);
+    }
+
+    .file-name {
+      font-size: 11px;
+      font-family: 'Space Mono', monospace;
+      color: var(--accent2);
+      word-break: break-all;
+      display: none;
+    }
+
+    .drop-zone.has-file .file-name {
+      display: block;
+    }
+
+    .drop-zone.has-file .drop-icon,
+    .drop-zone.has-file .drop-label {
+      display: none;
+    }
+
+    /* Text input */
+    input[type="text"],
+    input[type="password"] {
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      border-color: var(--accent);
+    }
+
+    input::placeholder {
+      color: #444;
+    }
+
+    /* Row */
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Submit button */
+    .btn-sign {
+      background: var(--accent);
+      color: #0d0d0f;
+      border: none;
+      border-radius: 10px;
+      padding: 15px 24px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: opacity 0.15s, transform 0.1s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-sign:hover {
+      opacity: 0.9;
+    }
+
+    .btn-sign:active {
+      transform: scale(0.98);
+    }
+
+    .btn-sign:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* Progress */
+    .progress-wrap {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .progress-wrap.visible { display: flex; }
+
+    .progress-bar-bg {
+      height: 3px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 99px;
+      width: 0%;
+      transition: width 0.3s;
+      animation: indeterminate 1.4s infinite linear;
+    }
+
+    @keyframes indeterminate {
+      0%   { transform: translateX(-100%); width: 60%; }
+      100% { transform: translateX(200%);  width: 60%; }
+    }
+
+    .progress-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    /* Status */
+    .status {
+      display: none;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .status.error {
+      display: block;
+      background: rgba(255,71,87,0.1);
+      border: 1px solid rgba(255,71,87,0.3);
+      color: var(--error);
+    }
+
+    .status.success {
+      display: block;
+      background: rgba(46,204,113,0.1);
+      border: 1px solid rgba(46,204,113,0.3);
+      color: var(--success);
+    }
+
+    /* Footer */
+    footer {
+      margin-top: 36px;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: #333;
+      text-align: center;
+    }
+
+    /* Optional fields hint */
+    .hint {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      color: #444;
+      margin-top: -4px;
+    }
+
+    /* Clear file button */
+    .clear-file {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      cursor: pointer;
+      text-align: center;
+      display: none;
+      padding: 4px;
+    }
+    .drop-zone.has-file ~ .clear-file { display: block; }
+    .clear-file:hover { color: var(--error); }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo-row">
+      <div class="logo-icon">
+        <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10 2L13 7H17L14 11L15.5 16L10 13L4.5 16L6 11L3 7H7L10 2Z" fill="#0d0d0f"/>
+        </svg>
+      </div>
+      <h1>Dex Signer</h1>
+    </div>
+    <p class="tagline">IPA signing — drop, sign, done</p>
+  </header>
+
+  <div class="card">
+    <!-- IPA -->
+    <div class="field">
+      <label>IPA File</label>
+      <div class="drop-zone" id="ipa-zone">
+        <input type="file" id="ipa-input" accept=".ipa" />
+        <div class="drop-icon">📦</div>
+        <div class="drop-label">Drop your <strong>.ipa</strong> here or click</div>
+        <div class="file-name" id="ipa-name"></div>
+      </div>
+      <span class="clear-file" id="ipa-clear" onclick="clearFile('ipa')">✕ remove</span>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- P12 -->
+    <div class="field">
+      <label>Certificate (P12)</label>
+      <div class="drop-zone" id="p12-zone">
+        <input type="file" id="p12-input" accept=".p12,.pfx" />
+        <div class="drop-icon">🔑</div>
+        <div class="drop-label">Drop your <strong>.p12</strong> or <strong>.pfx</strong> here or click</div>
+        <div class="file-name" id="p12-name"></div>
+      </div>
+      <span class="clear-file" id="p12-clear" onclick="clearFile('p12')">✕ remove</span>
+    </div>
+
+    <!-- Password -->
+    <div class="field">
+      <label>P12 Password <span style="color:#444;font-weight:400">(if any)</span></label>
+      <input type="password" id="p12-password" placeholder="leave blank if none" autocomplete="off" />
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Output name -->
+    <div class="field">
+      <label>Output filename</label>
+      <input type="text" id="output-name" placeholder="signed" />
+      <span class="hint">Result will be &lt;name&gt;.ipa</span>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="progress">
+      <div class="progress-bar-bg"><div class="progress-bar-fill"></div></div>
+      <div class="progress-label" id="progress-label">Uploading…</div>
+    </div>
+
+    <!-- Status -->
+    <div class="status" id="status"></div>
+
+    <!-- Button -->
+    <button class="btn-sign" id="sign-btn" onclick="doSign()">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M4 6l4 4 4-4M2 13h12" stroke="#0d0d0f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Sign IPA
+    </button>
+  </div>
+
+  <footer>files deleted from server within 5 minutes &bull; no logging</footer>
+</div>
+
+<script>
+  const files = { ipa: null, p12: null };
+
+  function setupZone(id, fieldName, accept) {
+    const zone = document.getElementById(id + '-zone');
+    const input = document.getElementById(id + '-input');
+    const nameEl = document.getElementById(id + '-name');
+
+    input.addEventListener('change', () => {
+      if (input.files[0]) setFile(fieldName, input.files[0], nameEl, zone);
+    });
+
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      const f = e.dataTransfer.files[0];
+      if (f) setFile(fieldName, f, nameEl, zone);
+    });
+  }
+
+  function setFile(fieldName, file, nameEl, zone) {
+    files[fieldName] = file;
+    nameEl.textContent = file.name;
+    zone.classList.add('has-file');
+    setStatus('', '');
+  }
+
+  function clearFile(fieldName) {
+    files[fieldName] = null;
+    const zone = document.getElementById(fieldName + '-zone');
+    const nameEl = document.getElementById(fieldName + '-name');
+    const input = document.getElementById(fieldName + '-input');
+    zone.classList.remove('has-file');
+    nameEl.textContent = '';
+    input.value = '';
+  }
+
+  function setStatus(type, msg) {
+    const el = document.getElementById('status');
+    el.className = 'status' + (type ? ' ' + type : '');
+    el.textContent = msg;
+  }
+
+  function setProgress(visible, label) {
+    document.getElementById('progress').classList.toggle('visible', visible);
+    document.getElementById('progress-label').textContent = label || '';
+  }
+
+  async function doSign() {
+    setStatus('', '');
+
+    if (!files.ipa) return setStatus('error', 'No IPA file selected.');
+    if (!files.p12) return setStatus('error', 'No P12 certificate selected.');
+
+    const btn = document.getElementById('sign-btn');
+    btn.disabled = true;
+    setProgress(true, 'Uploading files…');
+
+    const fd = new FormData();
+    fd.append('ipa', files.ipa);
+    fd.append('p12', files.p12);
+    fd.append('p12password', document.getElementById('p12-password').value);
+    const outName = document.getElementById('output-name').value.trim() || 'signed';
+    fd.append('outputName', outName);
+
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/sign');
+      xhr.responseType = 'blob';
+
+      xhr.upload.onprogress = e => {
+        if (e.lengthComputable) {
+          const pct = Math.round(e.loaded / e.total * 100);
+          setProgress(true, `Uploading… ${pct}%`);
+        }
+      };
+
+      xhr.onload = () => {
+        setProgress(false);
+        btn.disabled = false;
+
+        if (xhr.status === 200) {
+          const blob = xhr.response;
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${outName}.ipa`;
+          a.click();
+          URL.revokeObjectURL(url);
+          setStatus('success', `✓ Signed successfully — ${outName}.ipa downloaded.`);
+        } else {
+          // Try to read error JSON from blob
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const data = JSON.parse(reader.result);
+              setStatus('error', data.error || 'Signing failed.');
+            } catch {
+              setStatus('error', 'Signing failed. Check your certificate and password.');
+            }
+          };
+          reader.readAsText(xhr.response);
+        }
+      };
+
+      xhr.onerror = () => {
+        setProgress(false);
+        btn.disabled = false;
+        setStatus('error', 'Network error. Check your connection.');
+      };
+
+      setProgress(true, 'Signing…');
+      xhr.send(fd);
+
+    } catch (err) {
+      setProgress(false);
+      btn.disabled = false;
+      setStatus('error', err.message || 'Unexpected error.');
+    }
+  }
+
+  setupZone('ipa', 'ipa', '.ipa');
+  setupZone('p12', 'p12', '.p12,.pfx');
+</script>
+</body>
+</html>
